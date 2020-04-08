@@ -1,3 +1,4 @@
+#V1 version
 az login
 az extension list
 # if not present 
@@ -19,7 +20,7 @@ az ad group create --display-name AKSAdmins --mail-nickname AKSAdmins
 
 az ad group member add --group 00000000-0000-0000-0000-000000000000 --member-id 00000000-0000-0000-0000-000000000000 
 
-az ad group member check --group 00000000-0000-0000-0000-000000000000 --member-id 00000000-0000-0000-0000-000000000000 clear
+az ad group member check --group 00000000-0000-0000-0000-000000000000 --member-id 00000000-0000-0000-0000-000000000000 
 
 # AKS Variables
 

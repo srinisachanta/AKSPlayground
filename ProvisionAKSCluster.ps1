@@ -35,7 +35,7 @@ $adminCentralUSWorkSpace="Azure-CentralUS-WS"
 $adminCentralUSRG="Admin-CentralUS-RG"
 $adminCentralUSVNet="Azure-CentralUS-VNet"
 $clusterCentralUSSubNet="AKSTheRightWay-CentralUS-SubNet"
-$clusterAdminGroupId=$(az ad group list --display-name AKSAdmins --query "[].objectId")
+$clusterAdminGroupId=$(az ad group list --display-name AKSAdmins --query "[].objectId" --output tsv)
 
 
 #az network vnet list `
@@ -92,6 +92,7 @@ az aks create   --name $clusterCentralUSName `
                 --network-policy azure `
                 --enable-addons monitoring `
                 --enable-managed-identity `
+                --enable-aad `
                 --aad-admin-group-object-ids $clusterAdminGroupId `
                 --workspace-resource-id $adminCentralUSWorkSpaceId `
                 --generate-ssh-keys 

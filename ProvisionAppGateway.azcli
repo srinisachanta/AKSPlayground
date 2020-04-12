@@ -1,0 +1,143 @@
+az login 
+
+$appGatewayCentralUSName = "AppGateway-CentralUS"
+$location="centralus"
+$adminCentralUSWorkSpace="Azure-CentralUS-WS"
+$adminCentralUSRG="Admin-CentralUS-RG"
+$adminCentralUSVNet="Azure-CentralUS-VNet"
+$appGatewayCentralUSSubNet="AppGateway-CentralUS-SubNet"
+$appGatewayCentralUSIPAddress="AppGateway-CentralUS-IPAddress"
+
+#https://www.ipaddressguide.com/cidr
+           
+az network vnet subnet create -g $adminCentralUSRG --vnet-name $adminCentralUSVNet -n $appGatewayCentralUSSubNet `
+            --address-prefixes 10.0.127.0/24 
+
+az network public-ip create `
+  --resource-group $adminCentralUSRG `
+  --name $appGatewayCentralUSIPAddress `
+  --allocation-method Static `
+  --sku Standard
+
+az network application-gateway create `
+  --name $appGatewayCentralUSName `
+  --location $location `
+  --resource-group $adminCentralUSRG `
+  --capacity 2 `
+  --sku WAF_v2 `
+  --http-settings-cookie-based-affinity Disabled `
+  --public-ip-address $appGatewayCentralUSIPAddress `
+  --vnet-name $adminCentralUSVNet `
+  --frontend-port 80 `
+  --http-settings-port 80 `
+  --http-settings-protocol Http `
+  --subnet $appGatewayCentralUSSubNet 
+
+  az network application-gateway waf-config set `
+    -g $adminCentralUSRG `
+    --gateway-name $appGatewayCentralUSName `
+    --enabled true `
+    --firewall-mode Detection `
+    --rule-set-version 3.0
+  
+    # Create http probe
+az network application-gateway probe create `
+    -g $adminCentralUSRG `
+    --gateway-name $appGatewayCentralUSName `
+    -n defaultprobe-Http `
+    --protocol http `
+    --host 127.0.0.1 `
+    --timeout 30 `
+    --path /
+
+# Create https probe
+az network application-gateway probe create `
+    -g $adminCentralUSRG `
+    --gateway-name $appGatewayCentralUSName `
+    -n defaultprobe-Https `
+    --protocol https `
+    --host 127.0.0.1 `
+    --timeout 30 `
+    --path /
+
+
+    # Link http probe to application gateway
+az network application-gateway http-settings update `
+    -g $adminCentralUSRG `
+    --gateway-name $appGatewayCentralUSName `
+    -n appGatewayBackendHttpSettings `
+    --probe defaultprobe-Http
+
+  #az network application-gateway delete -g $adminCentralUSRG -n $appGatewayCentralUSName
+
+  
+### setup aad pod identity w/ managed identity
+az identity create `
+    -g $adminCentralUSRG `
+    -n aadappGW
+    
+# capture clientId in variable
+$clientId=$(az identity show `
+    -g $adminCentralUSRG `
+    -n aadappGW `
+    --query 'clientId' `
+    -o tsv)
+
+# capture appgwId in variable
+$appgwId=$(az network application-gateway list --resource-group $adminCentralUSRG --query '[].id' -o tsv)
+
+# capture appgw resource group id in variable
+$appgwrgId=$(az group show -g $adminCentralUSRG --query 'id' -o tsv)
+
+# Give identity Contributor access to your Application Gateway
+az role assignment create `
+    --role Contributor `
+    --assignee $clientId `
+    --scope $appgwId
+
+# Give identity Reader access to the Application Gateway resource group
+az role assignment create `
+    --role Reader `
+    --assignee $clientId `
+    --scope $appgwrgId
+
+# capture necessary variables for helm config
+applicationGatewayName=$(az network application-gateway list --resource-group $adminCentralUSRG --query '[].name' -o tsv)
+subscriptionId=$(az account show --query 'id' -o tsv)
+identityClientId=$(az identity show -g $adminCentralUSRG -n aadappGW --query 'clientId' -o tsv)
+identityResourceId=$(az identity show -g $adminCentralUSRG -n aadappGW --query 'id' -o tsv)
+adminCentralUSRG="Admin-CentralUS-RG"
+# download helm-config
+wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/sample-helm-config.yaml -O helm-config.yaml
+
+#TO BE CONTINUED
+# Install AAD Pod Identity to your cluster; installs Kubernetes CRDs: AzureIdentity, AzureAssignedIdentity, AzureIdentityBinding
+## Be sure to switch to K8s cluster
+kubectl create -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
+
+# use said to replace <> field values with captured data
+sed -i "" "s|<subscriptionId>|${subscriptionId}|g" helm-config.yaml
+sed -i "" "s|<adminCentralUSRGName>|${adminCentralUSRG}|g" helm-config.yaml
+sed -i "" "s|<applicationGatewayName>|${applicationGatewayName}|g" helm-config.yaml
+sed -i "" "s|<identityResourceId>|${identityResourceId}|g" helm-config.yaml
+sed -i "" "s|<identityClientId>|${identityClientId}|g" helm-config.yaml
+
+### Optional tip - open helm-config.yaml and edit line 47 if using an RBAC enabled cluster
+
+# add app gateway ingress helm chart repo and update repo
+helm repo add application-gateway-kubernetes-ingress https://appgwingress.blob.core.windows.net/ingress-azure-helm-package/
+helm repo update
+
+# install appgw ingress using helm chart and helm-config.yaml
+helm upgrade --install appgw-ingress-azure -f helm-config.yaml application-gateway-kubernetes-ingress/ingress-azure
+
+# test deployment
+
+wget https://raw.githubusercontent.com/jldeen/helm3-demo/master/jenkins-values-demo.yaml -O jenkins-values.yaml
+
+# deploy to 2 different namespaces with 2 different hostnames
+# hostname appgateway.ap.az.jessicadeen.com
+helm upgrade jenkins --install --namespace default2 -f ./jenkins-values.yaml stable/jenkins
+
+# hostname default.ap.az.jessicadeen.com
+helm upgrade jenkins --install --namespace default -f ./jenkins-values.yaml stable/jenkins

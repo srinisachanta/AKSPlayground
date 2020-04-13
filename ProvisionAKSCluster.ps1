@@ -83,12 +83,12 @@ az aks create   --name $clusterCentralUSName `
                 --load-balancer-sku standard `
                 --node-resource-group $nodeCentralUSResourceGroupName `
                 --nodepool-name $nodeCentralUSDevNodePoolName `
-                --node-count 3 `
+                --node-count 1 `
                 --node-vm-size Standard_DS2_v2 `
                 --zones 1 2 3 `
                 --enable-cluster-autoscaler `
-                --min-count 3 `
-                --max-count 5 `
+                --min-count 1 `
+                --max-count 3 `
                 --network-policy azure `
                 --enable-addons monitoring `
                 --enable-managed-identity `

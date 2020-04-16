@@ -84,10 +84,10 @@ az role assignment create \
     --assignee $clientId \
     --scope $appgwId
 
-az role assignment create \
-    --role Reader \
-    --assignee $clientId \
-    --scope $appgwrgId
+# az role assignment create \
+#    --role Reader \
+#    --assignee $clientId \
+#    --scope $appgwrgId
 
 # capture necessary variables for helm config
 applicationGatewayName=$(az network application-gateway list --resource-group $resourceGroup --query '[].name' -o tsv)

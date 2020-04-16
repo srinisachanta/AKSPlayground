@@ -91,11 +91,11 @@ az role assignment create \
 # capture necessary variables for helm config
 applicationGatewayName=$(az network application-gateway list --resource-group $resourceGroup --query '[].name' -o tsv)
 subscriptionId=$(az account show --query 'id' -o tsv)
-identityClientId=$(az identity show -g $resourceGroup -n $aadappGW --query 'clientId' -o tsv)
-identityResourceId=$(az identity show -g $resourceGroup -n $aadappGW --query 'id' -o tsv)
+identityClientId=$(az identity show -g $aksNodePoolResourceGroup -n $aadappGW --query 'clientId' -o tsv)
+identityResourceId=$(az identity show -g $aksNodePoolResourceGroup -n $aadappGW --query 'id' -o tsv)
 
 # download helm-config
-wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/sample-helm-config.yaml -O helm-config.yaml
+# wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/sample-helm-config.yaml -O helm-config.yaml
 
 ### Optional tip - open helm-config.yaml and edit line 47 if using an RBAC enabled cluster
 

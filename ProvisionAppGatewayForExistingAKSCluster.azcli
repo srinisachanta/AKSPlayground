@@ -62,6 +62,7 @@ az network application-gateway http-settings update \
 
 # Install AAD Pod Identity to your cluster; installs Kubernetes CRDs: AzureIdentity, AzureAssignedIdentity, AzureIdentityBinding
 ## Be sure to switch to K8s cluster
+kubectl delete -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
 kubectl create -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
 
     
@@ -103,7 +104,10 @@ identityResourceId=$(az identity show -g $aksNodePoolResourceGroup -n $aadappGW 
 helm repo add application-gateway-kubernetes-ingress https://appgwingress.blob.core.windows.net/ingress-azure-helm-package/
 helm repo update
 
+
 # install appgw ingress using helm chart and helm-config.yaml
+helm uninstall appgw-ingress-azure
 helm upgrade --install appgw-ingress-azure -f helm-config.yaml application-gateway-kubernetes-ingress/ingress-azure
 
-# helm uninstall appgw-ingress-azure
+# delete app gateway
+# az network application-gateway delete --name $appgwName --resource-group $resourceGroup

@@ -1,5 +1,4 @@
-# Taken from Jessica Deen and made minor modifications
-
+# Used Jessica Deen's blogpost and AGIC guide and made minor modifications
 resourceGroup=Admin-CentralUS-RG
 k8sVnet=Azure-CentralUS-VNet
 appgwName=AppGateway-CentralUS
@@ -7,7 +6,8 @@ appgwPublicIpName=AppGateway-CentralUS-IPAddress
 location="centralus"
 adminCentralUSRG=Admin-CentralUS-RG
 appgwsubnet=AppGateway-CentralUS-SubNet
-aadappGW=aadappGW
+aadappGW=AKSTheRightWay-CentralUS-agentpool
+aksNodePoolResourceGroup=AKSTheRightWayNodePool-CentralUS-RG
 
 # Create the application gateway
 az network application-gateway create \
@@ -16,7 +16,7 @@ az network application-gateway create \
   --resource-group $resourceGroup \
   --vnet-name $k8sVnet \
   --subnet $appgwsubnet \
-  --capacity 2 \
+  --capacity 1 \
   --sku WAF_v2 \
   --http-settings-cookie-based-affinity Disabled \
   --frontend-port 80 \
@@ -64,11 +64,10 @@ az network application-gateway http-settings update \
 ## Be sure to switch to K8s cluster
 kubectl create -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
 
-#Setup Azure Identity and Azure Identity Binding to Ingress controller resource
     
 # capture clientId in variable
 clientId=$(az identity show \
-    -g $resourceGroup \
+    -g $aksNodePoolResourceGroup \
     -n $aadappGW \
     --query 'clientId' \
     -o tsv)
@@ -79,26 +78,26 @@ appgwId=$(az network application-gateway list --resource-group $resourceGroup --
 # capture appgw resource group id in variable
 appgwrgId=$(az group show -g $resourceGroup --query 'id' -o tsv)
 
+az role assignment create \
+    --role Contributor \
+    --assignee $clientId \
+    --scope $appgwId
+
+az role assignment create \
+    --role Reader \
+    --assignee $clientId \
+    --scope $appgwrgId
 
 # capture necessary variables for helm config
 applicationGatewayName=$(az network application-gateway list --resource-group $resourceGroup --query '[].name' -o tsv)
 subscriptionId=$(az account show --query 'id' -o tsv)
-identityClientId=$(az identity show -g $resourceGroup -n aadappGW --query 'clientId' -o tsv)
-identityResourceId=$(az identity show -g $resourceGroup -n aadappGW --query 'id' -o tsv)
+identityClientId=$(az identity show -g $resourceGroup -n $aadappGW --query 'clientId' -o tsv)
+identityResourceId=$(az identity show -g $resourceGroup -n $aadappGW --query 'id' -o tsv)
 
 # download helm-config
 wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/sample-helm-config.yaml -O helm-config.yaml
 
-# use said to replace <> field values with captured data
-sed -i "" "s|<subscriptionId>|${subscriptionId}|g" helm-config.yaml
-sed -i "" "s|<resourceGroupName>|${resourceGroup}|g" helm-config.yaml
-sed -i "" "s|<applicationGatewayName>|${applicationGatewayName}|g" helm-config.yaml
-sed -i "" "s|<identityResourceId>|${identityResourceId}|g" helm-config.yaml
-sed -i "" "s|<identityClientId>|${identityClientId}|g" helm-config.yaml
-
 ### Optional tip - open helm-config.yaml and edit line 47 if using an RBAC enabled cluster
-
-
 
 # add app gateway ingress helm chart repo and update repo
 helm repo add application-gateway-kubernetes-ingress https://appgwingress.blob.core.windows.net/ingress-azure-helm-package/
@@ -106,6 +105,5 @@ helm repo update
 
 # install appgw ingress using helm chart and helm-config.yaml
 helm upgrade --install appgw-ingress-azure -f helm-config.yaml application-gateway-kubernetes-ingress/ingress-azure
-
 
 # helm uninstall appgw-ingress-azure

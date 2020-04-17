@@ -109,5 +109,8 @@ helm repo update
 helm uninstall appgw-ingress-azure
 helm upgrade --install appgw-ingress-azure -f helm-config.yaml application-gateway-kubernetes-ingress/ingress-azure
 
-# delete app gateway
+# delete app gateway related resources
+# helm uninstall appgw-ingress-azure
+# kubectl delete -f https://raw.githubusercontent.com/Azure/aad-pod-identity/master/deploy/infra/deployment-rbac.yaml
 # az network application-gateway delete --name $appgwName --resource-group $resourceGroup
+

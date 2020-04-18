@@ -1,0 +1,40 @@
+clusterCentralUSName="AKSTheRightWay-CentralUS"
+clusterCentralUSResourceGroupName="AKSTheRightWay-CentralUS-RG"
+location="centralus"
+registryCentralUSResourceGroupName="ContainerRegistry-CentralUS-RG"
+registryCentralUSName="ContainerRegistryCentralUS"$RANDOM
+
+az acr create \
+    --resource-group $registryCentralUSResourceGroupName \
+    --location $location \
+    --name $registryCentralUSName \
+    --sku Basic
+
+git clone https://github.com/MicrosoftDocs/mslearn-aks-workshop-ratings-api.git
+
+cd mslearn-aks-workshop-ratings-api
+
+az acr build \
+    --registry $registryCentralUSName \
+    --image ratings-api:v1 .
+	
+cd ~
+
+git clone https://github.com/MicrosoftDocs/mslearn-aks-workshop-ratings-web.git
+
+cd mslearn-aks-workshop-ratings-web
+
+az acr build \
+    --registry $registryCentralUSName \
+    --image ratings-web:v1 .
+	
+cd ~
+
+az acr repository list \
+    --name $registryCentralUSName \
+    --output table
+	
+az aks update \
+    --name $clusterCentralUSName \
+    --resource-group $clusterCentralUSResourceGroupName \
+    --attach-acr $registryCentralUSName

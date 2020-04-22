@@ -100,6 +100,10 @@ identityResourceId=$(az identity show -g $aksNodePoolResourceGroup -n $aadappGW 
 
 ### Optional tip - open helm-config.yaml and edit line 47 if using an RBAC enabled cluster
 
+# Create Azure Identity and Identity Binding for the node pool identity
+kubectl apply -f aadpodidentity.yaml
+kubectl apply -f aadpodidentitybinding.yaml
+
 # add app gateway ingress helm chart repo and update repo
 helm repo add application-gateway-kubernetes-ingress https://appgwingress.blob.core.windows.net/ingress-azure-helm-package/
 helm repo update

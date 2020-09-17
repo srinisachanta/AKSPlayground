@@ -9,7 +9,7 @@ az extension update -n aks-preview
 
 az feature register --name AAD-V2 --namespace Microsoft.ContainerService
 
-# contains doesn't in git bash/powershell. Works in python!
+# contains doesn't work in git bash/powershell. Works in python!
 az feature list --query "[?contains(name,'Microsoft.ContainerService/AAD-V2')].{Name:name,State:properties.state}" 
 
 az feature list --query "[?name=='Microsoft.ContainerService/AAD-V2'].{Name:name,State:properties.state}"
@@ -22,6 +22,7 @@ az ad group member add --group 00000000-0000-0000-0000-000000000000 --member-id 
 
 az ad group member check --group 00000000-0000-0000-0000-000000000000 --member-id 00000000-0000-0000-0000-000000000000 
 
+az ad group member list --group 00000000-0000-0000-0000-000000000000
 
 # AKS Variables
 
@@ -38,14 +39,14 @@ $clusterCentralUSSubNet="AKSTheRightWay-CentralUS-SubNet"
 $clusterAdminGroupId=$(az ad group list --display-name AKSAdmins --query "[].objectId" --output tsv)
 
 
-#az network vnet list `
-#    --resource-group $adminCentralUSRG `
-#    --query "[0].id" --output tsv
+az network vnet list `
+    --resource-group $adminCentralUSRG `
+    --query "[0].id" --output tsv
 
-#az network vnet subnet list `
-#    --resource-group $adminCentralUSRG `
-#    --vnet-name  $adminCentralUSVNet `
-#    --query "[?contains(name, 'AKSTheRightWayCentralUSSubNet')].id" --output tsv
+az network vnet subnet list `
+    --resource-group $adminCentralUSRG `
+    --vnet-name  $adminCentralUSVNet `
+    --query "[?contains(name, 'AKSTheRightWayCentralUSSubNet')].id" --output tsv
 
 
 # http://www.subnet-calculator.com/cidr.php
@@ -60,13 +61,17 @@ $clusterCentralUSSubNetID=$(az network vnet subnet list `
 
 #az network vnet delete --name $adminCentralUSVNet --resource-group  $adminCentralUSRG 
 
+az monitor log-analytics workspace list --query "[?contains(name, '$adminCentralUSWorkSpace')].id" --output tsv
+
+#az  deployment group create --resource-group $adminCentralUSRG --name $adminCentralUSWorkSpace  --template-file deploylaworkspacetemplate.json  #old way of creating workspace
 
 # create log analytics workspace in centralus
-az  deployment group create --resource-group $adminCentralUSRG --name $adminCentralUSWorkSpace  --template-file deploylaworkspacetemplate.json
-
+az resource create --resource-type Microsoft.OperationalInsights/workspaces --name $adminCentralUSWorkSpace --resource-group $adminCentralUSRG --properties '{}' -o table
 
 az group create --name $clusterCentralUSResourceGroupName --location $location
+
 $adminCentralUSWorkSpaceId=$(az monitor log-analytics workspace list --query "[?contains(name, '$adminCentralUSWorkSpace')].id" --output tsv)
+
 
 
 #az aks list
@@ -97,3 +102,4 @@ az aks create   --name $clusterCentralUSName `
                 --workspace-resource-id $adminCentralUSWorkSpaceId `
                 --generate-ssh-keys 
 
+az aks delete   --name $clusterCentralUSName --resource-group $clusterCentralUSResourceGroupName 
